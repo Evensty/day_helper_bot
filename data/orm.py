@@ -1,8 +1,7 @@
 from sqlalchemy import Integer, and_, cast, func, insert, inspect, or_, select, text
 from sqlalchemy.orm import aliased, contains_eager, joinedload, selectinload
 
-from .database import Base, engine, session_factory
-from .models import WorkersOrm
+from .database import engine, session_factory, Base
 
 
 class AsyncORM:
@@ -13,20 +12,20 @@ class AsyncORM:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 
-    @staticmethod
-    async def insert_workers():
-        async with session_factory() as session:
-            worker_jack = WorkersOrm(username="Jack")
-            worker_michael = WorkersOrm(username="Michael")
-            session.add_all([worker_jack, worker_michael])
-            # flush взаимодействует с БД, поэтому пишем await
-            await session.flush()
-            await session.commit()
-
-    @staticmethod
-    async def select_workers():
-        async with session_factory() as session:
-            query = select(WorkersOrm)
-            result = await session.execute(query)
-            workers = result.scalars().all()
-            print(f"{workers=}")
+    # @staticmethod
+    # async def insert_workers():
+    #     async with session_factory() as session:
+    #         worker_jack = WorkersOrm(username="Jack")
+    #         worker_michael = WorkersOrm(username="Michael")
+    #         session.add_all([worker_jack, worker_michael])
+    #         # flush взаимодействует с БД, поэтому пишем await
+    #         await session.flush()
+    #         await session.commit()
+    #
+    # @staticmethod
+    # async def select_workers():
+    #     async with session_factory() as session:
+    #         query = select(WorkersOrm)
+    #         result = await session.execute(query)
+    #         workers = result.scalars().all()
+    #         print(f"{workers=}")

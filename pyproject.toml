@@ -6,13 +6,13 @@ authors = ["Maxim Veselov <maxim.veselov11@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.12"
 pydantic = "^2.8.2"
 pydantic-settings = "^2.3.4"
 sqlalchemy = "^2.0.31"
-asyncpg = "^0.29.0"
 fastapi = "^0.111.1"
-psycopg = "^3.2.1"
+aiogram = "^3.15.0"
+psycopg = "^3.2.3"
 
 
 [build-system]

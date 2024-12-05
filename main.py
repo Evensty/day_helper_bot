@@ -1,6 +1,5 @@
-import asyncio
+from handlers.user import dp, bot
 
-from data.orm import AsyncORM
-
-asyncio.run(AsyncORM.insert_workers())
+if __name__ == '__main__':
+    dp.run_polling(bot)
 
