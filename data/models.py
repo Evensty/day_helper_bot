@@ -51,8 +51,17 @@ updated_at = Annotated[datetime.datetime, mapped_column(
 class User(Base):
     __tablename__ = 'users'
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, unique=True, nullable=False)
-# Base.metadata.create_all(engine)
+    user_id = Column(Integer, primary_key=True)
+    # name = Column(String, nullable=False)
+    # tasks = relationship()
+
+class Task(Base):
+    __tablename__ = 'tasks'
+
+    task_id = Column(Integer, primary_key=True)
+    # user_id = Column(Integer, ForeignKey('users.user_id'), unique=True, nullable=False)
+    task_text = Column(String, nullable=False)
+
+
 asyncio.run(AsyncORM.create_tables())
 

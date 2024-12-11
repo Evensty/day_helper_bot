@@ -5,27 +5,28 @@ from .database import engine, session_factory, Base
 
 
 class AsyncORM:
-    # Асинхронный вариант, не показанный в видео
     @staticmethod
     async def create_tables():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 
-    # @staticmethod
-    # async def insert_workers():
-    #     async with session_factory() as session:
-    #         worker_jack = WorkersOrm(username="Jack")
-    #         worker_michael = WorkersOrm(username="Michael")
-    #         session.add_all([worker_jack, worker_michael])
-    #         # flush взаимодействует с БД, поэтому пишем await
-    #         await session.flush()
-    #         await session.commit()
+    @staticmethod
+    async def insert_users(table_name, user_id):
+        async with session_factory() as session:
+            # Add new user to the database
+            new_user = table_name(user_id=user_id)
+            session.add(new_user)
+            # flush взаимодействует с БД, поэтому пишем await
+            # await session.flush()
+            await session.commit()
+
     #
     # @staticmethod
-    # async def select_workers():
+    # async def select_users():
     #     async with session_factory() as session:
-    #         query = select(WorkersOrm)
+    #         query = select(User)
     #         result = await session.execute(query)
-    #         workers = result.scalars().all()
-    #         print(f"{workers=}")
+    #         users = result.scalars().all()
+    #         return users
+
