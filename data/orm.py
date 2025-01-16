@@ -12,10 +12,10 @@ class AsyncORM:
             await conn.run_sync(Base.metadata.create_all)
 
     @staticmethod
-    async def insert_users(table_name, user_id):
+    async def insert_users(table_name, user_id, username):
         async with session_factory() as session:
             # Add new user to the database
-            new_user = table_name(user_id=user_id)
+            new_user = table_name(user_id=user_id, username = username )
             session.add(new_user)
             # flush взаимодействует с БД, поэтому пишем await
             # await session.flush()

@@ -15,7 +15,7 @@ from sqlalchemy import (
     PrimaryKeyConstraint,
     String,
     Table,
-    text,
+    text, func, Date,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -51,16 +51,31 @@ updated_at = Annotated[datetime.datetime, mapped_column(
 class User(Base):
     __tablename__ = 'users'
 
-    user_id = Column(Integer, primary_key=True)
-    # name = Column(String, nullable=False)
-    # tasks = relationship()
+    user_id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(50), unique=True, nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
 
+    # Связь с таблицей Task
+    tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
 class Task(Base):
     __tablename__ = 'tasks'
 
     task_id = Column(Integer, primary_key=True)
-    # user_id = Column(Integer, ForeignKey('users.user_id'), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
     task_text = Column(String, nullable=False)
+    # due_date = Column(Date, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+    # Связь с таблицей User
+    user = relationship("User", back_populates="tasks")
+
+
+class Link(Base):
+    __tablename__ = 'links'
+
+    link_id = Column(Integer, primary_key=True)
+    # user_id = Column(Integer, ForeignKey('users.user_id'), unique=True, nullable=False)
+    link = Column(String, nullable=False)
 
 
 asyncio.run(AsyncORM.create_tables())
