@@ -57,6 +57,8 @@ class User(Base):
 
     # Связь с таблицей Task
     tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
+    links = relationship("Link", back_populates="user", cascade="all, delete-orphan")
+
 class Task(Base):
     __tablename__ = 'tasks'
 
@@ -74,9 +76,11 @@ class Link(Base):
     __tablename__ = 'links'
 
     link_id = Column(Integer, primary_key=True)
-    # user_id = Column(Integer, ForeignKey('users.user_id'), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
     link = Column(String, nullable=False)
 
+    # Связь с таблицей User
+    user = relationship("User", back_populates="links")
 
 asyncio.run(AsyncORM.create_tables())
 

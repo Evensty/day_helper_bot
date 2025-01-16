@@ -119,18 +119,24 @@ async def delete_task_handler(message: Message):
 
 @dp.message(Command(commands=['add_link']))
 async def add_link_handler(message: Message):
-    # Extract task description
-    new_link = message.text[len("/add_link "):].strip()
-
-    if not new_link:
-        await message.reply("Please provide a task description. Usage: /add_task <task description>")
-        return
-
-    # Add task to the database
     async with session_factory() as session:
-        link = Link(link=new_link)
-        session.add(link)
-        await session.commit()
+        async with session.begin():
+            # Extract link
+            new_link = message.text[len("/add_link "):].strip()
+            if not new_link:
+                await message.reply("Добавьте ссылку, используя: /add_link <ссылка>")
+                return
+            # Add link to the database
+            username = message.from_user.username
+            result = await session.execute(select(User).where(User.username == username))
+            user = result.scalars().first()
+            if user:
+                link = Link(user_id=user.user_id, link=new_link)
+                session.add(link)
+                await session.commit()
+            else:
+                await message.reply("Пользователь не найден!")
+
 
 @dp.message(Command(commands=['links']))
 async def get_link_list_handler(message: Message):
