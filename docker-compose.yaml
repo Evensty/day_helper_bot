@@ -3,8 +3,36 @@ version: "3.8"
 services:
   db:
     container_name: docker-db
-    image: postgres
+    image: postgres:latest
+    volumes:
+#      - /home/evensty/data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
+
     ports:
       - "5432:5432"
     environment:
       POSTGRES_PASSWORD: ${DB_PASS}
+
+  bot:
+    build: . # Указывает на директорию с Dockerfile
+    container_name: telegram-bot
+    volumes:
+      - .:/app  # Монтирует текущую директорию в /app внутри контейнера
+    image: day_helper_bot
+    env_file:
+      - .env
+    restart: always
+    depends_on:
+      - db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+volumes:
+  db-data:
+
+
+

@@ -15,12 +15,12 @@ from sqlalchemy import (
     PrimaryKeyConstraint,
     String,
     Table,
-    text, func, Date,
+    text, func, Date, Boolean,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base, str_256
-from .orm import AsyncORM
+from .orm import ORM
 
 intpk = Annotated[int, mapped_column(primary_key=True)]
 created_at = Annotated[datetime.datetime, mapped_column(server_default=text("TIMEZONE('utc', now())"))]
@@ -51,11 +51,12 @@ updated_at = Annotated[datetime.datetime, mapped_column(
 class User(Base):
     __tablename__ = 'users'
 
-    user_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True, nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    # is_admin = Column(Boolean, default=False)
 
-    # Связь с таблицей Task
+    # Связи с таблицами
     tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
     links = relationship("Link", back_populates="user", cascade="all, delete-orphan")
 
@@ -65,8 +66,8 @@ class Task(Base):
     task_id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
     task_text = Column(String, nullable=False)
-    # due_date = Column(Date, nullable=True)
-    created_at = Column(TIMESTAMP, server_default=func.now())
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP(0)")
+)
 
     # Связь с таблицей User
     user = relationship("User", back_populates="tasks")
@@ -82,5 +83,5 @@ class Link(Base):
     # Связь с таблицей User
     user = relationship("User", back_populates="links")
 
-asyncio.run(AsyncORM.create_tables())
+asyncio.run(ORM.create_tables())
 
