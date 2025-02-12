@@ -1,5 +1,6 @@
+import logging
 import types
-from aiogram import Router, types, F
+from aiogram import Router, types, F, Bot
 from aiogram.types import Message, ForceReply, InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy import select
 
@@ -31,5 +32,11 @@ async def start_handler(message: Message):
 
 # Обработчик нажатия на кнопку "Показать задачи"
 @router.message(F.text == "📋 Показать задачи")
-async def show_tasks_callback(message: Message):
-    await get_task_list_handler(message)  # Выводим список задач
+async def show_tasks_callback(message: Message, bot: Bot):
+    try:
+        await get_task_list_handler(message)  # Выводим список задач
+        await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)  # Удаляем сообщение
+    except Exception as e:
+        await message.answer("Произошла ошибка при получении списка задач.")
+        logging.error(f"Ошибка в show_tasks_callback: {e}")
+

@@ -19,37 +19,57 @@ from data.orm import ORM
 router = Router()
 
 
-@router.message(F.data.startswith =='/addtask')
+# @router.message(F.text =='/addtask')
+# async def add_task_handler(message: Message):
+#     # Разбор аргументов команды
+#     command_parts = message.text.split(" ", 1)
+#     if len(command_parts) < 2 or not command_parts[1].strip():
+#         await message.reply(escape_md("Введите описание задачи: `/addtask <описание задачи>`"))
+#         return
+#
+#     task_text = command_parts[1].strip()
+#     user_id = message.from_user.id
+#
+#     async with session_factory() as session:
+#         try:
+#             result = await session.execute(select(User).where(User.user_id == user_id))
+#             user = result.scalars().first()
+#
+#             if not user:
+#                 await message.reply("Пользователь не найден! Возможно, вам нужно зарегистрироваться.")
+#                 return
+#
+#             new_task = Task(user_id=user.user_id, task_text=task_text)
+#             session.add(new_task)
+#             await session.commit()
+#
+#             await message.reply("Задача успешно добавлена!")
+#
+#         except SQLAlchemyError as e:
+#             logging.error(f"Ошибка базы данных: {e}")
+#             await message.reply("Произошла ошибка при добавлении задачи. Попробуйте позже.")
+
+@router.message(F.text.startswith('/addtask'))
 async def add_task_handler(message: Message):
-    # Разбор аргументов команды
-    command_parts = message.text.split(" ", 1)
-    if len(command_parts) < 2 or not command_parts[1].strip():
-        await message.reply(escape_md("Введите описание задачи: `/addtask <описание задачи>`"))
-        return
-
-    task_text = command_parts[1].strip()
-    user_id = message.from_user.id
-
     async with session_factory() as session:
-        try:
-            result = await session.execute(select(User).where(User.user_id == user_id))
-            user = result.scalars().first()
+        # Extract task description
+        new_task = message.text[len("/addtask "):].strip()
+        if not new_task:
+            await message.reply(escape_md("Введите описание задачи, используя: /addtask <описание задачи>"))
+            return
+        # Add task to the database
+        user_id = message.from_user.id
+        result = await session.execute(select(User).where(User.user_id == user_id))
+        user = result.scalars().first()
+        if not user:
+            await message.reply("Пользователь не найден!")
+            return
+        new_task = Task(user_id=user.user_id, task_text=new_task)
+        session.add(new_task)
+        await session.commit()
 
-            if not user:
-                await message.reply("Пользователь не найден! Возможно, вам нужно зарегистрироваться.")
-                return
 
-            new_task = Task(user_id=user.user_id, task_text=task_text)
-            session.add(new_task)
-            await session.commit()
-
-            await message.reply("Задача успешно добавлена!")
-
-        except SQLAlchemyError as e:
-            logging.error(f"Ошибка базы данных: {e}")
-            await message.reply("Произошла ошибка при добавлении задачи. Попробуйте позже.")
-
-@router.message(F.text =='/edittask')
+@router.message(F.text.startswith('/edittask'))
 async def edit_task_handler(message: Message):
     async with session_factory() as session:
         async with session.begin():
@@ -178,7 +198,7 @@ async def get_task_list_handler(message: Message):
         tasks = result.scalars().all()
 
         if not tasks:
-            await message.reply(escape_md("В базе данных нет задач."))
+            await message.answer(escape_md("В базе данных нет задач."))
             return
         task_lines = [
             f"**{i}** ID:{task.task_id} {escape_md(task.created_at.strftime('%d.%m.%Y'))} {escape_md(task.task_text)}"
@@ -218,35 +238,3 @@ async def delete_task_handler(callback: CallbackQuery, state: FSMContext):
         else:
             await callback.answer("Задача не найдена или уже удалена.", show_alert=True)
 
-
-
-
-
-            # args = message.text.split(maxsplit=1)
-            # if len(args) < 2:
-            #     await message.reply("Пожалуйста, укажите ID задач для удаления, разделяя их пробелами.")
-            #     return
-            #
-            # # Извлекаем часть с ID задач
-            # args = args[1]
-            #
-            # if not args:
-            #     await message.reply("Пожалуйста, укажите ID задач для удаления, разделяя их пробелами.")
-            #     return
-            # # Разделяем аргументы и пытаемся привести их к целым числам
-            # try:
-            #     user_id = message.from_user.id
-            #     task_ids = [int(task_id) for task_id in args.split()]
-            # except ValueError:
-            #     await message.reply("Все ID должны быть числами. Проверьте ввод и попробуйте снова.")
-            #     return
-            #
-            # stmt = delete(Task).where(Task.task_id.in_(task_ids), Task.user_id == user_id)
-            # result = await session.execute(stmt)
-            #
-            # deleted_count = result.rowcount
-            #
-            # if deleted_count:
-            #     await message.reply(f"Удалено задач: {deleted_count}.")
-            # else:
-            #     await message.reply("Не найдено задач с указанными ID.")
