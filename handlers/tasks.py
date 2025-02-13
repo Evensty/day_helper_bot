@@ -2,71 +2,52 @@ import logging
 import types
 
 from aiogram import Router, types, F
-from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import Message, ForceReply, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, \
     ReplyKeyboardMarkup, KeyboardButton
 from sqlalchemy import select, delete
 from sqlalchemy.exc import SQLAlchemyError
-from typer.cli import callback
 
 from bot import bot
 from data.database import session_factory
 from data.models import User, Task, Link
-from data.orm import ORM
 
 
 router = Router()
 
 
-# @router.message(F.text =='/addtask')
-# async def add_task_handler(message: Message):
-#     # Разбор аргументов команды
-#     command_parts = message.text.split(" ", 1)
-#     if len(command_parts) < 2 or not command_parts[1].strip():
-#         await message.reply(escape_md("Введите описание задачи: `/addtask <описание задачи>`"))
-#         return
-#
-#     task_text = command_parts[1].strip()
-#     user_id = message.from_user.id
-#
-#     async with session_factory() as session:
-#         try:
-#             result = await session.execute(select(User).where(User.user_id == user_id))
-#             user = result.scalars().first()
-#
-#             if not user:
-#                 await message.reply("Пользователь не найден! Возможно, вам нужно зарегистрироваться.")
-#                 return
-#
-#             new_task = Task(user_id=user.user_id, task_text=task_text)
-#             session.add(new_task)
-#             await session.commit()
-#
-#             await message.reply("Задача успешно добавлена!")
-#
-#         except SQLAlchemyError as e:
-#             logging.error(f"Ошибка базы данных: {e}")
-#             await message.reply("Произошла ошибка при добавлении задачи. Попробуйте позже.")
+# Определяем состояние для ввода задачи
+class TaskState(StatesGroup):
+    waiting_for_task = State()
 
-@router.message(F.text.startswith('/addtask'))
-async def add_task_handler(message: Message):
+@router.callback_query(F.data == "add_task")
+async def ask_for_task(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    """Запрашиваем у пользователя текст задачи"""
+    await callback.message.answer("✏ Введите описание задачи:")
+    await state.set_state(TaskState.waiting_for_task)
+
+@router.message(TaskState.waiting_for_task)
+async def add_task_handler(message: Message, state: FSMContext):
     async with session_factory() as session:
         # Extract task description
-        new_task = message.text[len("/addtask "):].strip()
-        if not new_task:
-            await message.reply(escape_md("Введите описание задачи, используя: /addtask <описание задачи>"))
+        new_task_text = message.text.strip()
+        if not new_task_text:
+            await message.answer(escape_md("⚠ Описание задачи не может быть пустым!"))
             return
         # Add task to the database
         user_id = message.from_user.id
         result = await session.execute(select(User).where(User.user_id == user_id))
         user = result.scalars().first()
         if not user:
-            await message.reply("Пользователь не найден!")
+            await message.answer(escape_md("Пользователь не найден!"))
             return
-        new_task = Task(user_id=user.user_id, task_text=new_task)
+        new_task = Task(user_id=user.user_id, task_text=new_task_text)
         session.add(new_task)
         await session.commit()
+        await message.answer(escape_md("Задача успешно добавлена!"), reply_markup=get_main_keyboard())
+        await state.clear()  # Выходим из состояния
 
 
 @router.message(F.text.startswith('/edittask'))
@@ -169,39 +150,63 @@ async def split_message(text, limit=4000):
         parts.append(current)
     return parts
 
+# Словарь для хранения последних сообщений с задачами
+user_last_messages = {}
 
-# Функция для создания кнопки
-def get_tasks_button():
-    button = KeyboardButton(text="📋 Показать задачи")
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False, keyboard=[[button]])
+def get_main_keyboard():
+    inline_buttons = [
+        [InlineKeyboardButton(text="➕ Добавить задачу", callback_data="add_task")],
+        [InlineKeyboardButton(text="📋 Показать задачи", callback_data="show_tasks")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=inline_buttons)
     return keyboard
 
 # Функция для создания кнопок для каждой задачи
 def get_task_buttons(tasks):
     inline_buttons = []  # Список для кнопок
-    for task in tasks:
+    for i, task in enumerate(tasks):
         button = InlineKeyboardButton(
-            text=f"Удалить задачу ID:{task.task_id}",
-            callback_data=f'deltask {task.task_id}')
+            text=f"Удалить задачу {i+1}",
+            callback_data=f'delete_task {task.task_id}')
         inline_buttons.append([button])
 
-    keyboard = InlineKeyboardMarkup(row_width=1, inline_keyboard=inline_buttons)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=inline_buttons)
     return keyboard
 
 
-@router.message(F.text == '/tasks')
-async def get_task_list_handler(message: Message):
+@router.callback_query(F.data.startswith('remove_keyboard'))
+async def remove_keyboard(callback: CallbackQuery):
+    await callback.message.edit_text('Клавиатура удалена', reply_markup=None)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith('show_tasks'))
+async def get_task_list_handler(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
     async with session_factory() as session:
-        user_id = message.from_user.id
+        user_id = callback.from_user.id
         stmt = select(Task).where(Task.user_id == user_id)
         result = await session.execute(stmt)
         tasks = result.scalars().all()
 
+        # Удаляем старые сообщения
+        if user_id in user_last_messages:
+            for msg_id in user_last_messages[user_id]:
+                try:
+                    await callback.message.bot.delete_message(chat_id=user_id, message_id=msg_id)
+                except Exception:
+                    pass  # Если сообщение уже удалено, игнорируем ошибку
+
+                # Очищаем список сообщений пользователя
+                user_last_messages[user_id] = []
+
         if not tasks:
-            await message.answer(escape_md("В базе данных нет задач."))
+            await callback.answer("У вас пока нет задач", show_alert=False)
+            new_msg = await callback.message.answer("Выбери действие", reply_markup=get_main_keyboard())
+            user_last_messages[user_id] = [new_msg.message_id]
+
             return
         task_lines = [
-            f"**{i}** ID:{task.task_id} {escape_md(task.created_at.strftime('%d.%m.%Y'))} {escape_md(task.task_text)}"
+            f"*{i}* {escape_md(task.created_at.strftime('%d.%m.%Y'))} {escape_md(task.task_text)}"
             for i, task in enumerate(tasks, start=1)
         ]
         # Разбиваем список задач на части
@@ -216,11 +221,15 @@ async def get_task_list_handler(message: Message):
             keyboard = get_task_buttons(tasks_in_part)  # Создаем кнопки только для этих задач
 
             # Отправка сообщения с задачами и клавиатурой
-            await message.answer(f"Список задач:\n{part}", reply_markup=keyboard, parse_mode="MarkdownV2")
+            new_msg = await callback.message.answer(f"Список задач:\n{part}", reply_markup=keyboard, parse_mode="MarkdownV2")
             start_idx += num_lines  # Смещаем индекс начала для следующего блока
 
+        # Сохраняем ID нового сообщения
+        user_last_messages[user_id] = [new_msg.message_id]
+        await callback.message.answer('Выбери действие', reply_markup=get_main_keyboard())
 
-@router.callback_query(F.data.startswith("deltask"))
+
+@router.callback_query(F.data.startswith("delete_task"))
 async def delete_task_handler(callback: CallbackQuery, state: FSMContext):
     task_id = int(callback.data.split()[1])  # Получаем ID задачи из callback_data
     user_id = callback.from_user.id
@@ -233,8 +242,8 @@ async def delete_task_handler(callback: CallbackQuery, state: FSMContext):
         if task:
             await session.delete(task)
             await session.commit()
-            await callback.answer("Задача удалена!", show_alert=True)
+            await callback.answer("Задача удалена!", show_alert=False)
             await callback.message.delete()  # Удаляем сообщение с задачами
         else:
-            await callback.answer("Задача не найдена или уже удалена.", show_alert=True)
+            await callback.answer("Задача не найдена или уже удалена.", show_alert=False)
 

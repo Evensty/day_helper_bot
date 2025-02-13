@@ -7,14 +7,14 @@ from sqlalchemy import select
 from data.database import session_factory
 from data.models import User
 from data.orm import ORM
-from handlers.tasks import escape_md, get_tasks_button, get_task_list_handler
+from handlers.tasks import escape_md, get_main_keyboard, get_task_list_handler
 
 router = Router()
 
 # Этот хэндлер будет срабатывать на команду "/start"
 @router.message(F.text == "/start")
 async def start_handler(message: Message):
-    keyboard = get_tasks_button()  # Получаем клавиатуру с кнопкой
+    keyboard = get_main_keyboard()  # Получаем клавиатуру с кнопкой
     await message.answer(escape_md('Привет!\nМеня зовут day_helper_bot!\nЯ могу создавать список задач'), reply_markup=keyboard)
     # Отправляем сообщение с кнопкой
     user_id = message.from_user.id
@@ -28,15 +28,3 @@ async def start_handler(message: Message):
             await message.answer(escape_md("Вы успешно зарегистрированы!"))
         else:
             await message.answer(escape_md("Вы уже зарегистрированы!"))
-
-
-# Обработчик нажатия на кнопку "Показать задачи"
-@router.message(F.text == "📋 Показать задачи")
-async def show_tasks_callback(message: Message, bot: Bot):
-    try:
-        await get_task_list_handler(message)  # Выводим список задач
-        await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)  # Удаляем сообщение
-    except Exception as e:
-        await message.answer("Произошла ошибка при получении списка задач.")
-        logging.error(f"Ошибка в show_tasks_callback: {e}")
-
