@@ -1,20 +1,15 @@
-[tool.poetry]
-name = "day-helper-bot"
+[project]
+name = "day_helper_bot"
 version = "0.1.0"
-description = ""
-authors = ["Maxim Veselov <maxim.veselov11@gmail.com>"]
+description = "Add your description here"
 readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.32.3",
+    "pydantic>=2.8.2",
+    "pydantic-settings>=2.3.4",
+    "sqlalchemy>=2.0.31",
+    "aiogram>=3.19.0",
+    "psycopg>=3.2.3"
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-pydantic = "^2.8.2"
-pydantic-settings = "^2.3.4"
-sqlalchemy = "^2.0.31"
-fastapi = "^0.111.1"
-aiogram = "^3.15.0"
-psycopg = "^3.2.3"
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

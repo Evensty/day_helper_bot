@@ -1,26 +1,16 @@
-# Базовый образ с Python
-FROM python:3.12.3-slim
+FROM python:3.12-slim-bookworm
 
-# Установим рабочую директорию
+COPY --from=ghcr.io/astral-sh/uv:0.6.14 /uv /bin/uv
+RUN uv venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN apt-get update && apt-get install -y libpq-dev gcc
+
 WORKDIR /app
 
-# Установка системных зависимостей
-# RUN apt-get update && apt-get install -y \
-#     build-essential \
-#     libpq-dev \
-#     && apt-get clean
+COPY pyproject.toml .
 
-# Установим Poetry
-RUN pip install --no-cache-dir poetry
-
-# # Скопируем только файлы, необходимые для установки зависимостей
-COPY pyproject.toml poetry.lock /
-
-# Установим зависимости без создания виртуального окружения
-RUN poetry config virtualenvs.create false && poetry install  --no-root --no-dev
-
-# Скопируем остальной код проекта
+RUN uv pip install .
 COPY . .
 
-# Укажите команду запуска бота
 CMD ["python", "main.py"]
